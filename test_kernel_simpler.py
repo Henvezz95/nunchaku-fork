@@ -71,7 +71,7 @@ if __name__ == '__main__':
 
     input_matrix = torch.randint(-7,8,(batch_size, in_features, out_features))
     R = torch.randint(-7,8,(in_features, out_features))
-    scales = 
+    scales = torch.ones((in_features))
     lora_up = torch.randint(-7,8,(out_features, lora_rank))
     lora_down = torch.randint(-7,8,(in_features, lora_rank))
     qweight, wscales = nunchaku_C.ops.quantize_w4a4_wgt(R.to(dtype))
@@ -80,5 +80,5 @@ if __name__ == '__main__':
             'wscales': wscales,
             'lora_down': lora_down,
             'lora_up': lora_up,
-            'smooth': smooth_padded,
+            'smooth': scales,
         }
