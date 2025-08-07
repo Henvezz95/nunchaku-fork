@@ -48,15 +48,24 @@ def get_sm_targets() -> list[str]:
             sm = f"{capability[0]}{capability[1]}"
             if sm == "120" and support_sm120:
                 sm = "120a"
-            assert sm in ["75", "80", "86", "89", "120a"], f"Unsupported SM {sm}"
+            assert sm in ["75", "80", "86", "87", "89", "120a"], f"Unsupported SM {sm}"
             if sm not in ret:
                 ret.append(sm)
     else:
         assert install_mode == "ALL"
-        ret = ["75", "80", "86", "89"]
+        print('Install mode ALL')
+        ret = ["75", "80", "86", "87", "89"]
         if support_sm120:
             ret.append("120a")
     return ret
+"""
+
+def get_sm_targets() -> list[str]:
+    # Manually specify the CUDA architecture for the Jetson Orin AGX.
+    sm_targets = ["87"]
+    print(f"Manually setting SM targets to: {sm_targets}")
+    return sm_targets
+"""
 
 
 if __name__ == "__main__":
@@ -78,6 +87,7 @@ if __name__ == "__main__":
         "third_party/mio/include",
         "third_party/spdlog/include",
         "third_party/Block-Sparse-Attention/csrc/block_sparse_attn",
+        "/usr/local/lib/python3.10/dist-packages/torch/include",
     ]
 
     INCLUDE_DIRS = [os.path.join(ROOT_DIR, dir) for dir in INCLUDE_DIRS]
@@ -158,6 +168,7 @@ if __name__ == "__main__":
             *ncond(
                 "third_party/Block-Sparse-Attention/csrc/block_sparse_attn/src/flash_fwd_block_hdim128_bf16_sm80.cu"
             ),
+            "nunchaku/csrc/ops.cu", # <--- Added ops.cu
             "src/kernels/activation_kernels.cu",
             "src/kernels/layernorm_kernels.cu",
             "src/kernels/misc_kernels.cu",

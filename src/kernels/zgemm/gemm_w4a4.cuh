@@ -1184,4 +1184,8 @@ public:
     };
 };
 
+
+void quantize_w4a4_wgt_wrapper(Tensor input, Tensor output, Tensor oscales);
+void quantize_w4a4_act_wrapper(Tensor input, Tensor output, Tensor oscales);
+
 }; // namespace nunchaku::kernels

@@ -4,6 +4,10 @@
 #include "Tensor.h"
 #include "Module.h"
 
+namespace torch {
+class Tensor;
+}
+
 class GEMM_F16 : public Module {
 public:
     GEMM_F16(int in_features, int out_features, bool use_bias, Tensor::ScalarType dtype, Device device);
@@ -66,7 +70,9 @@ public:
     };
 
 public:
-    GEMM_W4A4(int in_features, int out_features, bool bias, bool use_fp4, Tensor::ScalarType dtype, Device device);
+    //GEMM_W4A4(int in_features, int out_features, bool bias, bool use_fp4, Tensor::ScalarType dtype, Device device);
+    GEMM_W4A4(int in_features, int out_features, bool bias, bool use_fp4, Tensor::ScalarType dtype, Device device, int lora_rank = 0);
+    void load_from_dict(const std::map<std::string, Tensor>& dict, bool partial);
     Tensor forward(Tensor x);
     Tensor forward_silu(Tensor x);
     std::variant<Tensor, QuantizedActivation> forward(Tensor x, FuseOptions fuse, GEMM_W4A4 *nextGEMM = nullptr);

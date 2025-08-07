@@ -7,6 +7,16 @@
 #include <torch/extension.h>
 #include "interop/torch.h"
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h> // Required for std::map support
+#include "Linear.h"
+
+std::map<std::string, Tensor> torch_dict_to_nunchaku_map(const std::map<std::string, torch::Tensor>& dict) {
+    std::map<std::string, Tensor> nunchaku_map;
+    for (const auto& pair : dict) {
+        nunchaku_map[pair.first] = from_torch(pair.second.contiguous());
+    }
+    return nunchaku_map;
+}
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     py::class_<QuantizedFluxModel>(m, "QuantizedFluxModel")
@@ -86,33 +96,72 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def("getDebugResults", &QuantizedSanaModel::getDebugResults);
     py::class_<QuantizedGEMM>(m, "QuantizedGEMM")
         .def(py::init<>())
-        .def("init", &QuantizedGEMM::init)
+        .def("init", &QuantizedGEMM::init, 
+            py::arg("in_features"), 
+            py::arg("out_features"), 
+            py::arg("bias"), 
+            py::arg("use_fp4"), 
+            py::arg("bf16"), 
+            py::arg("deviceId"), 
+            py::arg("rank") = 0)
         .def("reset", &QuantizedGEMM::reset)
         .def("load", &QuantizedGEMM::load)
+        .def("loadDict", &QuantizedGEMM::loadDict, py::arg("dict"), py::arg("partial") = false) // <-- ADD THIS LINE
         .def("forward", &QuantizedGEMM::forward)
         .def("quantize", &QuantizedGEMM::quantize)
         .def("startDebug", &QuantizedGEMM::startDebug)
         .def("stopDebug", &QuantizedGEMM::stopDebug)
         .def("getDebugResults", &QuantizedGEMM::getDebugResults);
-    py::class_<Tensor>(m, "Tensor");
-    py::class_<QuantizedGEMM88>(m, "QuantizedGEMM88")
-        .def(py::init<>())
-        .def("init", &QuantizedGEMM88::init)
-        .def("reset", &QuantizedGEMM88::reset)
-        .def("load", &QuantizedGEMM88::load)
-        .def("forward", &QuantizedGEMM88::forward)
-        .def("startDebug", &QuantizedGEMM88::startDebug)
-        .def("stopDebug", &QuantizedGEMM88::stopDebug)
-        .def("getDebugResults", &QuantizedGEMM88::getDebugResults);
+    
+    //py::class_<Tensor>(m, "Tensor");
+    // Give the Tensor class binding a variable name so we can attach the enum to it
+    py::class_<Tensor> tensor_class(m, "Tensor");
+
+    // Define and export the ScalarType enum as a nested type within the Tensor class
+    py::enum_<Tensor::ScalarType>(tensor_class, "ScalarType")
+        .value("FP32",     Tensor::ScalarType::FP32)
+        .value("FP16",     Tensor::ScalarType::FP16)
+        .value("BF16",     Tensor::ScalarType::BF16)
+        .value("INT32",    Tensor::ScalarType::INT32)
+        .value("INT8",     Tensor::ScalarType::INT8)
+        .value("FP8_E4M3", Tensor::ScalarType::FP8_E4M3)
+        .export_values(); // This makes the enum members accessible
+    
+    /*py::class_<GEMM_W4A4>(m, "QuantizedGEMM_W4A4")
+        .def(py::init<int, int, bool, bool, Tensor::ScalarType, Device>(),
+             py::arg("in_features"),
+             py::arg("out_features"),
+             py::arg("bias"),
+             py::arg("use_fp4"),
+             py::arg("dtype"),
+             py::arg("device"))
+        .def("forward", [](GEMM_W4A4 &self, torch::Tensor x) {
+            Tensor nunchaku_x = from_torch(x.contiguous());
+            Tensor nunchaku_out = self.forward(nunchaku_x);
+            return to_torch(nunchaku_out);
+        }, py::arg("x"))
+        .def("load_from_dict", [](GEMM_W4A4 &self, const std::map<std::string, torch::Tensor>& dict, bool partial) {
+            auto nunchaku_map = torch_dict_to_nunchaku_map(dict);
+            self.load_from_dict(nunchaku_map, partial);
+        }, py::arg("dict"), py::arg("partial") = false);*/
+
+
 
     m.def_submodule("ops")
-        .def("gemm_w4a4", nunchaku::ops::gemm_w4a4)
         .def("attention_fp16", nunchaku::ops::attention_fp16)
         .def("gemm_awq", nunchaku::ops::gemm_awq)
         .def("gemv_awq", nunchaku::ops::gemv_awq)
 
         .def("test_rmsnorm_rope", nunchaku::ops::test_rmsnorm_rope)
-        .def("test_pack_qkv", nunchaku::ops::test_pack_qkv);
+        .def("test_pack_qkv", nunchaku::ops::test_pack_qkv)
+        .def("quantize_w4a4_wgt", [](torch::Tensor input) {
+            auto result_tuple = nunchaku::ops::quantize_w4a4_wgt(input);
+            return std::make_tuple(std::get<0>(result_tuple), std::get<1>(result_tuple));
+        }, py::arg("input"))
+        .def("quantize_w4a4_act", [](torch::Tensor input) {
+            auto result_tuple = nunchaku::ops::quantize_w4a4_act(input);
+            return std::make_tuple(std::get<0>(result_tuple), std::get<1>(result_tuple));
+        }, py::arg("input"));
 
     m.def_submodule("utils")
         .def("set_log_level", [](const std::string &level) { spdlog::set_level(spdlog::level::from_str(level)); })

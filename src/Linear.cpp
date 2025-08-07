@@ -88,10 +88,14 @@ Tensor GEMV_AWQ::forward(Tensor x) {
 #define NO_LORA_FUSION 0
 
 GEMM_W4A4::GEMM_W4A4(
-    int in_features, int out_features, bool bias, bool use_fp4, Tensor::ScalarType dtype, Device device)
+    int in_features, int out_features, bool bias, bool use_fp4, Tensor::ScalarType dtype, Device device, int lora_rank)
     : in_features(in_features), out_features(out_features), in_features_pad(ceilDiv(in_features, 128) * 128),
       out_features_pad(ceilDiv(out_features, 128) * 128), use_fp4(use_fp4), lora_rank(0), dtype(dtype), device(device) {
     this->qweight = Tensor::allocate({out_features_pad, in_features_pad / 2}, Tensor::INT8, device, true);
+
+    // --- ADD THESE DEBUG LINES ---
+    spdlog::critical("GEMM_W4A4 constructor received lora_rank: {}", lora_rank);
+
     if (use_fp4) {
         this->wscales = Tensor::allocate({in_features_pad / 16, out_features_pad}, Tensor::FP8_E4M3, device, true);
     } else {
@@ -455,7 +459,9 @@ GEMM_W4A4::QuantizedActivation GEMM_W4A4::quantize(Tensor x, bool fuse_glu) {
     } else {
         qact.ascales = Tensor::allocate({in_features_pad / 64, M}, dtype, device);
     }
-    qact.lora_act    = Tensor::allocate({M, lora_rank}, Tensor::FP32, device);
+    //qact.lora_act    = Tensor::allocate({M, lora_rank}, Tensor::FP32, device);
+    const int current_rank = this->lora_down.shape[1];
+    qact.lora_act = Tensor::allocate({M, current_rank}, Tensor::FP32, device);
     qact.is_unsigned = false;
     qact.actShape    = x.shape.dataExtent;
 

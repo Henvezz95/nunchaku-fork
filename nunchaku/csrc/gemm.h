@@ -8,20 +8,25 @@
 
 class QuantizedGEMM : public ModuleWrapper<GEMM_W4A4> {
 public:
-    void init(int64_t in_features, int64_t out_features, bool bias, bool use_fp4, bool bf16, int8_t deviceId) {
+    void init(int64_t in_features, int64_t out_features, bool bias, bool use_fp4, bool bf16, int8_t deviceId, int64_t rank=0){
         spdlog::info("Initializing QuantizedGEMM");
+
+        spdlog::critical("QuantizedGEMM::init received rank: {}", rank);
 
         size_t val = 0;
         checkCUDA(cudaDeviceSetLimit(cudaLimitStackSize, 8192));
         checkCUDA(cudaDeviceGetLimit(&val, cudaLimitStackSize));
         spdlog::debug("Stack={}", val);
 
-        net = std::make_unique<GEMM_W4A4>((int)in_features,
-                                          (int)out_features,
-                                          bias,
-                                          use_fp4,
-                                          bf16 ? Tensor::BF16 : Tensor::FP16,
-                                          Device::cuda((int)deviceId));
+        net = std::make_unique<GEMM_W4A4>(
+            (int)in_features,
+            (int)out_features,
+            bias,
+            use_fp4,
+            bf16 ? Tensor::BF16 : Tensor::FP16,
+            Device::cuda((int)deviceId),
+            (int)rank 
+        );
     }
 
     torch::Tensor forward(torch::Tensor x) {
@@ -112,3 +117,9 @@ public:
         spdlog::debug("ascales = {}", dumpTensorBF16(ascales));
     }
 };
+
+namespace nunchaku::kernels {
+void quantize_w4a4_wgt_wrapper(Tensor input, Tensor output, Tensor oscales);
+void quantize_w4a4_act_wrapper(Tensor input, Tensor output, Tensor oscales);
+
+} // namespace nunchaku::kernels

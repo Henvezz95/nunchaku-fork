@@ -124,14 +124,18 @@ void quantize_w4a4_act_fuse_lora(Tensor input,
     });
 }
 
-void quantize_w4a4_act(Tensor input, Tensor output, Tensor oscales) {
-    invoke_launch(input.dtype(), false, false, [&]<typename Config, bool USE_FP4>() {
-        GEMM_W4A4_Launch<Config, false>::quantize_w4a4_act(input, output, oscales);
-    });
-}
-void quantize_w4a4_wgt(Tensor input, Tensor output, Tensor oscales) {
+void quantize_w4a4_wgt_wrapper(Tensor input, Tensor output, Tensor oscales) {
+    // This implementation calls the complex template dispatcher.
+    // Because this code is now in the same header, the compiler can see it.
     invoke_launch(input.dtype(), false, false, [&]<typename Config, bool USE_FP4>() {
         GEMM_W4A4_Launch<Config, false>::quantize_w4a4_wgt(input, output, oscales);
+    });
+}
+
+void quantize_w4a4_act_wrapper(Tensor input, Tensor output, Tensor oscales) {
+    // This implementation also calls the template dispatcher.
+    invoke_launch(input.dtype(), false, false, [&]<typename Config, bool USE_FP4>() {
+        GEMM_W4A4_Launch<Config, false>::quantize_w4a4_act(input, output, oscales);
     });
 }
 
