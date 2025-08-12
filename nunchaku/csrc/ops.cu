@@ -189,4 +189,8 @@ torch::Tensor gemm_w4a4_lr_fp16(
     return out;
 }
 
+void gemm_w4a4_dummy(int a, int b) {
+    // This function does nothing. It's just for testing compilation.
+}
+
 }

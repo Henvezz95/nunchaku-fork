@@ -44,4 +44,38 @@ void test_rmsnorm_rope(torch::Tensor input, torch::Tensor output, torch::Tensor 
 
 void test_pack_qkv(torch::Tensor input, torch::Tensor out_q, torch::Tensor out_k, torch::Tensor out_v, int numTokens); 
 
+void gemm_w4a4(
+    std::optional<torch::Tensor> act,
+    std::optional<torch::Tensor> wgt,
+    std::optional<torch::Tensor> out,
+    std::optional<torch::Tensor> qout,
+    std::optional<torch::Tensor> ascales,
+    std::optional<torch::Tensor> wscales,
+    std::optional<torch::Tensor> oscales,
+    std::optional<torch::Tensor> poolout,
+    std::optional<torch::Tensor> lora_act_in,
+    std::optional<torch::Tensor> lora_up,
+    std::optional<torch::Tensor> lora_down,
+    std::optional<torch::Tensor> lora_act_out,
+    std::optional<torch::Tensor> norm_q,
+    std::optional<torch::Tensor> norm_k,
+    std::optional<torch::Tensor> rotary_emb,
+    std::optional<torch::Tensor> bias,
+    std::optional<torch::Tensor> smooth_factor,
+    std::optional<torch::Tensor> out_vk,
+    std::optional<torch::Tensor> out_linearattn,
+    bool act_unsigned,
+    std::vector<float> lora_scales,
+    bool fuse_silu,
+    bool fp4,
+    float alpha,
+    std::optional<torch::Tensor> wcscales,
+    std::optional<torch::Tensor> out_q,
+    std::optional<torch::Tensor> out_k,
+    std::optional<torch::Tensor> out_v,
+    int attn_tokens
+);
+
+void gemm_w4a4_dummy(int a, int b);
+
 }; // namespace nunchaku::ops
