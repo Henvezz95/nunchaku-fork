@@ -721,7 +721,7 @@ public:
     template<bool ACT_UNSIGNED, typename T>
     __device__ __forceinline__ static void
     compute(act_warp A, wgt_warp W, ascale_warp ascale, wscale_warp wscale, T &fpsum) {
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ == 800
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ == 800 || __CUDA_ARCH__ == 870)
         using int2half2 = i2f_sm80;
 #elif defined(__CUDA_ARCH__) && __CUDA_ARCH__ == 750
         using int2half2 = std::conditional_t<Config::FASTER_I2F, i2f_sm75_fast, i2f_sm75>;

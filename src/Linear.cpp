@@ -161,6 +161,32 @@ void GEMM_W4A4::loadParam(std::string key, Tensor &dst, Tensor src) {
     }
 }
 
+
+void GEMM_W4A4::load_from_dict(const std::map<std::string, Tensor>& dict, bool partial) {
+    auto load_if = [&](const char* key, Tensor& dst) {
+        const auto it = dict.find(std::string(key));
+        if (it != dict.end()) {
+            // Uses Module::loadParam, which already handles casting/moving and special cases (see your loadParam).
+            this->loadParam(key, dst, it->second);
+        } else if (!partial) {
+            // If you want strict behavior, uncomment:
+            // TORCH_CHECK(false, "Missing required key in load_from_dict: ", key);
+        }
+    };
+
+    // Core params
+    load_if("qweight",  qweight);
+    load_if("wscales",  wscales);
+    load_if("wcscales", wcscales);   // optional, handled specially in loadParam
+    load_if("wtscale",  wtscale);    // optional, handled specially in loadParam
+    load_if("bias",     bias);       // optional
+    load_if("smooth",   smooth);     // optional
+
+    // LoRA (optional)
+    load_if("lora_down", lora_down); // NOTE: underscore names (match registerParams & loadParam)
+    load_if("lora_up",   lora_up);
+}
+
 Tensor GEMM_W4A4::forward(Tensor x) {
     return std::get<Tensor>(this->forward(x, FuseOptions::EMPTY, nullptr));
 }
@@ -507,30 +533,6 @@ GEMM_W4A4::QuantizedActivation GEMM_W4A4::quantize(Tensor x, bool fuse_glu) {
     kernels::quantize_w4a4_act(x, qact.act, qact.ascales);
 
 #endif
-
-    // --- DEBUG CODE ---
-    {
-        std::cout << "--- Dumping C++ intermediate lora_act tensor ---" << std::endl;
-        
-        // FIX 1: Use the existing 'loadParam' function from the Module base class to copy the tensor.
-        Tensor cpu_tensor = Tensor::allocate(qact.lora_act.shape, qact.lora_act.scalar_type(), Device::cpu());
-        loadParam("debug_copy", cpu_tensor, qact.lora_act); // The key "debug_copy" is arbitrary
-
-        // Wait for the GPU->CPU copy to finish
-        cudaStreamSynchronize(getCurrentCUDAStream());
-
-        std::ofstream outfile("intermediate_cpp.txt");
-        outfile << std::fixed << std::setprecision(8); // This now works because of <iomanip>
-        
-        float* data_ptr = cpu_tensor.data_ptr<float>();
-        for (size_t i = 0; i < cpu_tensor.numel(); ++i) {
-            outfile << data_ptr[i] << std::endl;
-        }
-        outfile.close();
-        std::cout << "--- Finished dumping to intermediate_cpp.txt ---" << std::endl;
-    }
-    // ------------------------------------
-
 
     return qact;
 }

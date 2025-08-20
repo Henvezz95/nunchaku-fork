@@ -32,7 +32,7 @@ public:
     torch::Tensor forward(torch::Tensor x) {
         checkModel();
 
-        std::cerr << "QuantizedGEMM forward" << std::endl;
+        //std::cerr << "QuantizedGEMM forward" << std::endl;
 
         x = x.contiguous();
 

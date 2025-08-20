@@ -72,49 +72,45 @@ if __name__ == "__main__":
 
     ROOT_DIR = os.path.dirname(__file__)
 
+    from torch.utils.cpp_extension import include_paths as torch_include_paths
     INCLUDE_DIRS = [
         "src",
-        "nunchaku/csrc",
+        "nunchaku/csrc", 
         "third_party/cutlass/include",
         "third_party/json/include",
         "third_party/mio/include",
         "third_party/spdlog/include",
         "third_party/Block-Sparse-Attention/csrc/block_sparse_attn",
-        "/usr/local/lib/python3.10/dist-packages/torch/include",
+        *torch_include_paths(),  # <- replaces the hard-coded path
     ]
 
     INCLUDE_DIRS = [os.path.join(ROOT_DIR, dir) for dir in INCLUDE_DIRS]
 
     DEBUG = False
 
-    def ncond(s) -> list:
-        if DEBUG:
-            return []
-        else:
-            return [s]
+    def ncond(s):  # include only in non-debug builds
+        return [] if DEBUG else [s]
 
-    def cond(s) -> list:
-        if DEBUG:
-            return [s]
-        else:
-            return []
+    def cond(s):   # include only in debug builds
+        return [s] if DEBUG else []
 
     sm_targets = get_sm_targets()
     print(f"Detected SM targets: {sm_targets}", file=sys.stderr)
 
     assert len(sm_targets) > 0, "No SM targets found"
 
-    GCC_FLAGS = ["-DENABLE_BF16=1", "-DBUILD_NUNCHAKU=1", "-fvisibility=hidden",  "-std=c++20", "-DNDEBUG", "-O3"]
-    MSVC_FLAGS = ["/DENABLE_BF16=1", "/DBUILD_NUNCHAKU=1", "/std:c++20", "/UNDEBUG", "/Zc:__cplusplus", "/FS"]
+    GCC_FLAGS = ["-DENABLE_BF16=1", "-DBUILD_NUNCHAKU=1", "-fvisibility=hidden", "-O3", "-std=c++20", "-DNDEBUG"]
+    MSVC_FLAGS = ["/DENABLE_BF16=1", "/DBUILD_NUNCHAKU=1", "/std:c++20", "/DNDEBUG", "/Zc:__cplusplus", "/FS"]
     NVCC_FLAGS = [
         "-DENABLE_BF16=1",
         "-DBUILD_NUNCHAKU=1",
-        #"-g",
+        "-O3",
         "-std=c++20",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-Xptxas=-v,--allow-expensive-optimizations=true,--maxrregcount=128",
         "-DNDEBUG",
-        "-Xcudafe",
-        "--diag_suppress=20208",  # spdlog: 'long double' is treated as 'double' in device code
-        *cond("-G"),
+        "-Xcudafe", "--diag_suppress=20208",
         "-U__CUDA_NO_HALF_OPERATORS__",
         "-U__CUDA_NO_HALF_CONVERSIONS__",
         "-U__CUDA_NO_HALF2_OPERATORS__",
@@ -123,19 +119,15 @@ if __name__ == "__main__":
         "-U__CUDA_NO_BFLOAT16_CONVERSIONS__",
         "-U__CUDA_NO_BFLOAT162_OPERATORS__",
         "-U__CUDA_NO_BFLOAT162_CONVERSIONS__",
-        f"--threads={len(sm_targets)}",
-        "--expt-relaxed-constexpr",
-        "--expt-extended-lambda",
-        "-Xptxas=,--allow-expensive-optimizations=true,--maxrregcount=256",
     ]
-
-    if os.getenv("NUNCHAKU_BUILD_WHEELS", "0") == "0":
+    # optional:
+    if os.getenv("NUNCHAKU_NVCC_THREADS", "1") == "1":
+        NVCC_FLAGS += [f"--threads={len(sm_targets)}"]
+    if os.getenv("NUNCHAKU_DEBUG_INFO", "0") == "1":
         NVCC_FLAGS.append("--generate-line-info")
 
     for target in sm_targets:
         NVCC_FLAGS += ["-gencode", f"arch=compute_{target},code=sm_{target}"]
-
-    NVCC_MSVC_FLAGS = ["-Xcompiler", "/Zc:__cplusplus", "-Xcompiler", "/FS", "-Xcompiler", "/bigobj"]
 
     nunchaku_extension = CUDAExtension(
         name="nunchaku._C",
@@ -149,7 +141,6 @@ if __name__ == "__main__":
             *ncond("src/SanaModel.cpp"),
             "src/Serialization.cpp",
             "src/Module.cpp",
-            "src/FusedMLP.cpp",
             *ncond("third_party/Block-Sparse-Attention/csrc/block_sparse_attn/src/flash_fwd_hdim64_fp16_sm80.cu"),
             *ncond("third_party/Block-Sparse-Attention/csrc/block_sparse_attn/src/flash_fwd_hdim64_bf16_sm80.cu"),
             *ncond("third_party/Block-Sparse-Attention/csrc/block_sparse_attn/src/flash_fwd_hdim128_fp16_sm80.cu"),
@@ -162,7 +153,7 @@ if __name__ == "__main__":
             *ncond(
                 "third_party/Block-Sparse-Attention/csrc/block_sparse_attn/src/flash_fwd_block_hdim128_bf16_sm80.cu"
             ),
-            "nunchaku/csrc/ops.cu", # <--- Added ops.cu
+            "nunchaku/csrc/ops.cu", 
             "src/kernels/activation_kernels.cu",
             "src/kernels/layernorm_kernels.cu",
             "src/kernels/misc_kernels.cu",

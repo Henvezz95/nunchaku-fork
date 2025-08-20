@@ -9,6 +9,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> // Required for std::map support
 #include "Linear.h"
+#include "FusedMLP.h"
+
 
 std::map<std::string, Tensor> torch_dict_to_nunchaku_map(const std::map<std::string, torch::Tensor>& dict) {
     std::map<std::string, Tensor> nunchaku_map;
@@ -112,6 +114,22 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def("startDebug", &QuantizedGEMM::startDebug)
         .def("stopDebug", &QuantizedGEMM::stopDebug)
         .def("getDebugResults", &QuantizedGEMM::getDebugResults);
+    py::class_<QuantizedFusedMLP>(m, "QuantizedFusedMLP")
+        .def(py::init<>())
+        .def("init",
+            &QuantizedFusedMLP::init,
+            py::arg("in_features"),
+            py::arg("hidden_features"),
+            py::arg("bias"),
+            py::arg("use_fp4"),
+            py::arg("bf16"),
+            py::arg("deviceId"))
+        .def("loadDict",
+            &QuantizedFusedMLP::loadDict,
+            py::arg("state_dict"))
+        .def("forward",
+            &QuantizedFusedMLP::forward,
+            py::arg("x"));
     
     //py::class_<Tensor>(m, "Tensor");
     // Give the Tensor class binding a variable name so we can attach the enum to it

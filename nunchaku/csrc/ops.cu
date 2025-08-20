@@ -13,7 +13,6 @@ namespace nunchaku::ops {
         Tensor nunchaku_input = from_torch(input.contiguous());
         auto shape_w = nunchaku_input.shape;
         Tensor qweight = Tensor::allocate({shape_w[0], shape_w[1] / 2}, Tensor::INT8, nunchaku_input.device());
-        //Tensor wscales = Tensor::allocate({shape_w[0] * shape_w[1] / 64}, nunchaku_input.dtype(), nunchaku_input.device());
         Tensor wscales = Tensor::allocate({shape_w[1] / 64, shape_w[0]}, nunchaku_input.dtype(), nunchaku_input.device());
         
         // Call the new, simple wrapper function instead of the complex template
